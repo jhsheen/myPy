@@ -1,0 +1,189 @@
+import os
+import shutil
+import time
+import glob
+from PIL import Image
+import pyautogui
+import keyboard
+
+class BookData:
+    def __init__(self, book_data, xy_coords):
+        self.book_data = book_data
+        self.xy_coords = xy_coords
+        [self.book_name, self.book_total, self.book_author, self.book_pages, self.book_cpytime, self.tmp_path, self.book_path] = self.book_data
+        [self.xa, self.ya, self.xb, self.yb, self.xc, self.yc, self.xd, self.yd] = self.xy_coords
+        self.pdf_file_path = self.tmp_path + 'P_' + self.book_name + '/'
+
+    def get_book_data(self):
+        print('***get_book_data!***')
+        self.book_name = input("Book Name: ")
+        while True:
+            try:
+                self.book_pages = int(input("Pages Of Book: "))
+                if 1 <= self.book_pages <= 999:
+                    break
+                else:
+                    print("Invalid input. Please enter a number between 1 and 999.")
+            except ValueError:
+                print("Invalid input. Please enter a number.")
+        while True:
+            try:
+                self.book_cpytime = int(input("Delay Seconds: "))
+                if 1 <= self.book_cpytime <= 10:
+                    break
+                else:
+                    print("Invalid input. Please enter a number between 1 and 10.")
+            except ValueError:
+                print("Invalid input. Please enter a number.")
+        while True:
+            try:
+                self.book_key = int(input("Next Page (1 Right, 2 Click, 3 Down): "))
+                if 1 <= self.book_key <= 3:
+                    break
+                else:
+                    print("Invalid input. Please enter a number between 1 and 3.")
+            except ValueError:
+                print("Invalid input. Please enter a number.")        
+        self.book_path = self.tmp_path + self.book_name + '/'
+        self.pdf_file_path = self.tmp_path + '_' + self.book_name + '/'
+        self.book_data = [self.book_name, self.book_total, self.book_author, self.book_pages, self.book_cpytime, self.tmp_path, self.book_path] 
+        return
+
+    def copy_one_page(self):
+        print('Copy One Page!')
+        image_path = self.book_path + self.book_name + '.png'
+        if os.path.exists(self.book_path):
+            shutil.rmtree(self.book_path)
+        os.makedirs(self.book_path)
+        pyautogui.screenshot(image_path, region=(self.xa, self.ya, self.xd, self.yd)) # type: ignore        
+        image = Image.open(image_path)
+        image.show()
+        print("PNG file is ==>  " + image_path)
+        return
+
+    def copy_multiple_pages(self):
+        print('Copy Multiple Pages!')
+        if os.path.exists(self.book_path):
+            shutil.rmtree(self.book_path)
+        os.makedirs(self.book_path)
+    #    pyautogui.moveTo(self.xc, self.yc)
+    #    pyautogui.click()
+        time.sleep(2.0)
+
+        for i in range(1, self.book_pages + 1):
+            # if 'esc' key pressed, then break
+            if keyboard.is_pressed('esc'):
+                break
+            current_time = time.strftime('%m%d %H%M%S', time.localtime())
+            file_name = self.book_path + self.book_name + current_time + '.png'
+            time.sleep(0.5)
+            pyautogui.screenshot(file_name, region=(self.xa, self.ya, self.xd, self.yd)) # type: ignore
+            
+            # 페이지 넘기기
+            self.xn, self.yn = pyautogui.position() # 현재 마우스 위치를 xn, yn에 저장
+            
+            pyautogui.moveTo(self.xc, self.yc)  # 마우스 이동
+            pyautogui.click(button='right') #창 활성화를 위해 더블클릭
+            if self.book_key == 1: 
+                pyautogui.press('right') # 1이면 Right arrow key press
+            elif self.book_key == 2: # 2이면 마우스 오른쪽 버튼 클릭
+                pyautogui.click(button='right')
+            elif self.book_key == 3: # 3 이면 down arrow key press
+                pyautogui.press('down') # Down
+            pyautogui.moveTo(self.xn, self.yn) # 이전 마우스 위치로 이동
+            time.sleep(self.book_cpytime)
+        return
+
+    def get_xy(self):
+        print('=========Get XY===============')
+        print('1:XYt,2:XYb,3:XYc,4:end')
+        i = 1
+        while True:
+            i += 1
+            key_input = keyboard.read_key()
+            if i % 2 == 0:
+                x, y = pyautogui.position()
+                if key_input == '1':
+                    self.xa, self.ya = x, y
+                elif key_input == '2':
+                    self.xb, self.yb = x, y
+                elif key_input == '3':
+                    self.xc, self.yc = x, y
+                # if key_input ==4 then show.imgae region=(self.xa, self.ya, self.xd, self.yd) and break
+                elif key_input == '4':
+                    break
+                self.xd, self.yd = self.xb - self.xa, self.yb - self.ya
+                self.xy_coords = [self.xa, self.ya, self.xb, self.yb, self.xc, self.yc, self.xd, self.yd]
+                print(self.xy_coords)
+        return self.xy_coords
+
+    def images_to_pdf(self):
+        print('=========Images to PDF===============')
+        png_file_pattern = self.book_path + '*.png'
+        if os.path.exists(self.pdf_file_path):
+            shutil.rmtree(self.pdf_file_path)
+        os.makedirs(self.pdf_file_path)
+        png_file_list = glob.glob(png_file_pattern)
+        count = 1
+        for png_file_name in png_file_list:
+            img_1 = Image.open(png_file_name)
+            img_2 = img_1.convert('RGB')
+            pdf_file_name = self.pdf_file_path + self.book_name + str('%04d' % count) + '.pdf'
+            img_2.save(pdf_file_name)
+            count = count + 1
+        return
+
+def main():
+    book_name = 'ex'
+    book_total = 'ex1'
+    book_author = 'sheen'
+    book_pages = 3
+    book_cpytime = 1
+    tmp_path = 'c:/_Temp/'
+    book_path = tmp_path + book_name + '/'
+    book_data = [book_name, book_total, book_author, book_pages, book_cpytime, tmp_path, book_path]
+    xy_coords = [185, 130, 1390, 2079, 789, 1064, 1205, 1949]
+
+    print(book_data)
+    print(xy_coords)
+    book = BookData(book_data, xy_coords)
+    while True:
+        prompt =  "*Select No.    *"
+        prompt += "\n*1:Book Data   *"
+        prompt += "\n*2:Page Size   *"
+        prompt += "\n*3:Copy 1 Page *"
+        prompt += "\n*4:Copy n Pages*"
+        prompt += "\n*5:PDF 변한    *"
+        prompt += "\n*6:Book Data   *"
+        prompt += "\n*else:End      *"
+        prompt += "\nNumber? :"
+    
+        while True:
+            try:
+                number = int(input(prompt))
+                break  # 유효한 숫자가 입력되면 루프를 빠져나옵니다.
+            except ValueError:
+                print("Invalid input. Please enter a number.")
+                continue
+        if number == 1:
+            book.get_book_data()
+        elif number == 2:
+            book.get_xy()
+            book.copy_one_page()
+        elif number == 3:
+            book.copy_one_page()
+        elif number == 4:
+            book.copy_multiple_pages()
+            book.images_to_pdf()
+        elif number == 5:
+            book.images_to_pdf()
+        elif number == 6:
+            print(book.book_data)
+        else:            
+            print("Thank You for using this program!")
+            break
+
+if __name__ == "__main__":
+    main()
+    
+# End of BkCpy500a.py
